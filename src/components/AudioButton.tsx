@@ -1,6 +1,7 @@
 import { Volume2, VolumeX, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
+import { deepLToSpeechCode } from "@/data/languages";
 
 interface AudioButtonProps {
   text: string;
@@ -19,41 +20,9 @@ export const AudioButton = ({ text, language, disabled }: AudioButtonProps) => {
     if (isSpeaking) {
       stop();
     } else {
-      // Map language codes to BCP 47 language tags
-      const langMap: Record<string, string> = {
-        en: "en-US",
-        es: "es-ES",
-        fr: "fr-FR",
-        de: "de-DE",
-        it: "it-IT",
-        pt: "pt-BR",
-        ru: "ru-RU",
-        zh: "zh-CN",
-        ja: "ja-JP",
-        ko: "ko-KR",
-        ar: "ar-SA",
-        hi: "hi-IN",
-        tr: "tr-TR",
-        nl: "nl-NL",
-        pl: "pl-PL",
-        sv: "sv-SE",
-        da: "da-DK",
-        fi: "fi-FI",
-        no: "nb-NO",
-        el: "el-GR",
-        he: "he-IL",
-        th: "th-TH",
-        vi: "vi-VN",
-        id: "id-ID",
-        ms: "ms-MY",
-        cs: "cs-CZ",
-        hu: "hu-HU",
-        ro: "ro-RO",
-        uk: "uk-UA",
-        am: "am-ET",
-      };
-      
-      speak(text, langMap[language] || "en-US");
+      // Convert DeepL language code to Web Speech API compatible code
+      const speechLang = deepLToSpeechCode(language);
+      speak(text, speechLang);
     }
   };
 

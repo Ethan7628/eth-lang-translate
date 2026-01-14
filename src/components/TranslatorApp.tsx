@@ -279,7 +279,7 @@ const TranslatorApp = () => {
             {isOnline ? (
               <span className="flex items-center justify-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-online" />
-                Connected • Powered by Google Translate
+                Connected • Powered by DeepL
               </span>
             ) : (
               <span className="flex items-center justify-center gap-2">
