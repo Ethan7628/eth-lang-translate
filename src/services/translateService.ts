@@ -7,26 +7,33 @@ const MIN_REQUEST_INTERVAL = 300; // 300ms between requests
 
 const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-// Mock translation for demo (fallback when no API key)
-const mockTranslate = async (text: string, targetLang: string): Promise<string> => {
-  // Simple mock that adds language indicator
-  await new Promise((resolve) => setTimeout(resolve, 500));
+// DeepL API configuration
+const DEEPL_API_URL = "https://api-free.deepl.com/v2/translate";
+
+// Mock translation for demo/offline fallback
+const mockTranslate = async (text: string, targetLang: string): Promise<{ translatedText: string; detectedSourceLang?: string }> => {
+  await new Promise((resolve) => setTimeout(resolve, 300));
   
   const mockTranslations: Record<string, Record<string, string>> = {
-    "hello": { es: "hola", fr: "bonjour", de: "hallo", it: "ciao", pt: "olá", ja: "こんにちは", zh: "你好", ko: "안녕하세요", ar: "مرحبا", am: "ሰላም" },
-    "goodbye": { es: "adiós", fr: "au revoir", de: "auf wiedersehen", it: "arrivederci", pt: "adeus", ja: "さようなら", zh: "再见", ko: "안녕히 가세요", ar: "وداعا", am: "ደህና ሁን" },
-    "thank you": { es: "gracias", fr: "merci", de: "danke", it: "grazie", pt: "obrigado", ja: "ありがとう", zh: "谢谢", ko: "감사합니다", ar: "شكرا", am: "አመሰግናለሁ" },
-    "how are you": { es: "¿cómo estás?", fr: "comment allez-vous?", de: "wie geht es dir?", it: "come stai?", pt: "como você está?", ja: "お元気ですか", zh: "你好吗", ko: "어떻게 지내세요?", ar: "كيف حالك؟", am: "እንዴት ነህ?" },
+    "hello": { ES: "hola", FR: "bonjour", DE: "hallo", IT: "ciao", "PT-BR": "olá", JA: "こんにちは", "ZH-HANS": "你好", KO: "안녕하세요", AR: "مرحبا", RU: "привет" },
+    "goodbye": { ES: "adiós", FR: "au revoir", DE: "auf wiedersehen", IT: "arrivederci", "PT-BR": "adeus", JA: "さようなら", "ZH-HANS": "再见", KO: "안녕히 가세요", AR: "وداعا", RU: "до свидания" },
+    "thank you": { ES: "gracias", FR: "merci", DE: "danke", IT: "grazie", "PT-BR": "obrigado", JA: "ありがとう", "ZH-HANS": "谢谢", KO: "감사합니다", AR: "شكرا", RU: "спасибо" },
+    "how are you": { ES: "¿cómo estás?", FR: "comment allez-vous?", DE: "wie geht es dir?", IT: "come stai?", "PT-BR": "como você está?", JA: "お元気ですか", "ZH-HANS": "你好吗", KO: "어떻게 지내세요?", AR: "كيف حالك؟", RU: "как дела?" },
   };
   
   const lowerText = text.toLowerCase().trim();
   if (mockTranslations[lowerText] && mockTranslations[lowerText][targetLang]) {
-    return mockTranslations[lowerText][targetLang];
+    return { translatedText: mockTranslations[lowerText][targetLang], detectedSourceLang: "EN" };
   }
   
   // Return text with language indicator for demo
-  return `[${targetLang.toUpperCase()}] ${text}`;
+  return { translatedText: `[${targetLang}] ${text}`, detectedSourceLang: "EN" };
 };
+
+export interface TranslateResult {
+  translatedText: string;
+  detectedSourceLang?: string;
+}
 
 export const translateText = async (
   text: string,
@@ -52,56 +59,98 @@ export const translateText = async (
   }
   lastRequestTime = Date.now();
 
-  // Try Google Cloud Translation API
-  const apiKey = import.meta.env.VITE_GOOGLE_TRANSLATE_API_KEY;
+  // Check if we're offline
+  if (!navigator.onLine) {
+    // Try to find any cached translation for this text
+    const offlineResult = await mockTranslate(text, targetLanguage);
+    const translation: Translation = {
+      id: generateId(),
+      sourceText: text,
+      translatedText: offlineResult.translatedText,
+      sourceLanguage: offlineResult.detectedSourceLang || sourceLanguage,
+      targetLanguage,
+      timestamp: Date.now(),
+    };
+    return translation;
+  }
+
+  // Get DeepL API key
+  const apiKey = import.meta.env.VITE_DEEPL_API_KEY;
   
   let translatedText: string;
+  let detectedSourceLang: string | undefined;
   
   if (apiKey) {
     try {
-      const response = await fetch(
-        `https://translation.googleapis.com/language/translate/v2?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            q: text,
-            source: sourceLanguage,
-            target: targetLanguage,
-            format: "text",
-          }),
-        }
-      );
+      // Build request body for DeepL
+      const requestBody: Record<string, string | string[]> = {
+        text: [text],
+        target_lang: targetLanguage,
+      };
+      
+      // Only add source_lang if it's not auto-detect
+      // DeepL auto-detects if source_lang is omitted
+      if (sourceLanguage && sourceLanguage !== "AUTO") {
+        // DeepL requires just the base language code for source (no regional variants)
+        requestBody.source_lang = sourceLanguage.split("-")[0];
+      }
+
+      const response = await fetch(DEEPL_API_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": `DeepL-Auth-Key ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
 
       if (!response.ok) {
-        const error = await response.json();
-        if (response.status === 403 || response.status === 429) {
-          // Quota exceeded or forbidden - fall back to mock
-          console.warn("API quota exceeded, using mock translation");
-          translatedText = await mockTranslate(text, targetLanguage);
+        const errorText = await response.text();
+        console.error("DeepL API error:", response.status, errorText);
+        
+        if (response.status === 403) {
+          throw new Error("Invalid API key. Please check your DeepL API key.");
+        } else if (response.status === 456) {
+          throw new Error("DeepL quota exceeded. Please check your usage limits.");
+        } else if (response.status === 429) {
+          throw new Error("Too many requests. Please wait a moment and try again.");
         } else {
-          throw new Error(error.error?.message || "Translation failed");
+          // Fallback to mock for other errors
+          console.warn("DeepL API error, using mock translation");
+          const mockResult = await mockTranslate(text, targetLanguage);
+          translatedText = mockResult.translatedText;
+          detectedSourceLang = mockResult.detectedSourceLang;
         }
       } else {
         const data = await response.json();
-        translatedText = data.data.translations[0].translatedText;
+        translatedText = data.translations[0].text;
+        detectedSourceLang = data.translations[0].detected_source_language;
       }
     } catch (error) {
+      if (error instanceof Error && 
+          (error.message.includes("Invalid API key") || 
+           error.message.includes("quota exceeded") ||
+           error.message.includes("Too many requests"))) {
+        throw error;
+      }
       console.warn("API error, using mock translation:", error);
-      translatedText = await mockTranslate(text, targetLanguage);
+      const mockResult = await mockTranslate(text, targetLanguage);
+      translatedText = mockResult.translatedText;
+      detectedSourceLang = mockResult.detectedSourceLang;
     }
   } else {
     // No API key - use mock translation for demo
-    translatedText = await mockTranslate(text, targetLanguage);
+    console.warn("No DeepL API key configured, using mock translation");
+    const mockResult = await mockTranslate(text, targetLanguage);
+    translatedText = mockResult.translatedText;
+    detectedSourceLang = mockResult.detectedSourceLang;
   }
 
   const translation: Translation = {
     id: generateId(),
     sourceText: text,
-    translatedText,
-    sourceLanguage,
+    translatedText: translatedText!,
+    sourceLanguage: detectedSourceLang || sourceLanguage,
     targetLanguage,
     timestamp: Date.now(),
   };

@@ -2,6 +2,7 @@ import { Mic, MicOff, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useEffect } from "react";
+import { deepLToSpeechCode } from "@/data/languages";
 
 interface VoiceRecorderProps {
   onTranscript: (text: string) => void;
@@ -23,40 +24,6 @@ export const VoiceRecorder = ({
     isSupported,
   } = useSpeechRecognition();
 
-  // Map language codes to BCP 47 language tags
-  const langMap: Record<string, string> = {
-    en: "en-US",
-    es: "es-ES",
-    fr: "fr-FR",
-    de: "de-DE",
-    it: "it-IT",
-    pt: "pt-BR",
-    ru: "ru-RU",
-    zh: "zh-CN",
-    ja: "ja-JP",
-    ko: "ko-KR",
-    ar: "ar-SA",
-    hi: "hi-IN",
-    tr: "tr-TR",
-    nl: "nl-NL",
-    pl: "pl-PL",
-    sv: "sv-SE",
-    da: "da-DK",
-    fi: "fi-FI",
-    no: "nb-NO",
-    el: "el-GR",
-    he: "he-IL",
-    th: "th-TH",
-    vi: "vi-VN",
-    id: "id-ID",
-    ms: "ms-MY",
-    cs: "cs-CZ",
-    hu: "hu-HU",
-    ro: "ro-RO",
-    uk: "uk-UA",
-    am: "am-ET",
-  };
-
   useEffect(() => {
     if (transcript && !isListening) {
       onTranscript(transcript);
@@ -67,7 +34,9 @@ export const VoiceRecorder = ({
     if (isListening) {
       stopListening();
     } else {
-      startListening(langMap[language] || "en-US");
+      // Convert DeepL language code to Web Speech API compatible code
+      const speechLang = deepLToSpeechCode(language);
+      startListening(speechLang);
     }
   };
 
