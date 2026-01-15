@@ -48,18 +48,18 @@ export const LanguageSelector = ({
   }, [isOpen]);
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative flex-1 max-w-[140px] sm:max-w-[160px]">
       {label && (
         <span className="text-xs text-muted-foreground mb-1 block">{label}</span>
       )}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-secondary/70 hover:bg-secondary transition-colors text-sm font-medium min-w-[140px]"
+        className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2.5 rounded-xl bg-secondary/70 hover:bg-secondary transition-colors text-sm font-medium w-full"
         aria-label="Select language"
       >
-        <span className="flex-1 text-left">{selectedLanguage.name}</span>
+        <span className="flex-1 text-left truncate">{selectedLanguage.name}</span>
         <ChevronDown
-          className={`h-4 w-4 text-muted-foreground transition-transform ${
+          className={`h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 ${
             isOpen ? "rotate-180" : ""
           }`}
         />
@@ -72,7 +72,7 @@ export const LanguageSelector = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute top-full left-0 mt-2 w-64 bg-card rounded-xl shadow-medium border border-border z-50 overflow-hidden"
+            className="fixed inset-x-4 sm:absolute sm:inset-x-auto sm:left-0 sm:right-auto top-auto mt-2 sm:w-64 bg-card rounded-xl shadow-medium border border-border z-50 overflow-hidden"
           >
             <div className="p-2 border-b border-border">
               <div className="relative">
