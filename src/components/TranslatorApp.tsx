@@ -138,7 +138,7 @@ const TranslatorApp = () => {
 
       <main className="container max-w-4xl mx-auto px-4 py-6">
         {/* Language Selectors */}
-        <div className="flex items-center justify-center gap-4 mb-6">
+        <div className="flex items-center justify-between gap-2 sm:gap-4 mb-6">
           <LanguageSelector
             selectedLanguage={sourceLanguage}
             onSelect={setSourceLanguage}
@@ -148,10 +148,10 @@ const TranslatorApp = () => {
             whileHover={{ scale: 1.1, rotate: 180 }}
             whileTap={{ scale: 0.9 }}
             onClick={handleSwapLanguages}
-            className="swap-button"
+            className="swap-button flex-shrink-0"
             aria-label="Swap languages"
           >
-            <ArrowRightLeft className="h-5 w-5" />
+            <ArrowRightLeft className="h-4 w-4 sm:h-5 sm:w-5" />
           </motion.button>
 
           <LanguageSelector
