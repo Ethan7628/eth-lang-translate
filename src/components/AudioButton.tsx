@@ -1,7 +1,8 @@
-import { Volume2, VolumeX, Loader2 } from "lucide-react";
+import { Volume2, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { deepLToSpeechCode } from "@/data/languages";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface AudioButtonProps {
   text: string;
@@ -11,6 +12,7 @@ interface AudioButtonProps {
 
 export const AudioButton = ({ text, language, disabled }: AudioButtonProps) => {
   const { isSpeaking, speak, stop, isSupported } = useTextToSpeech();
+  const { settings } = useSettings();
 
   if (!isSupported) {
     return null;
@@ -22,7 +24,7 @@ export const AudioButton = ({ text, language, disabled }: AudioButtonProps) => {
     } else {
       // Convert DeepL language code to Web Speech API compatible code
       const speechLang = deepLToSpeechCode(language);
-      speak(text, speechLang);
+      speak(text, speechLang, settings.voiceType);
     }
   };
 
