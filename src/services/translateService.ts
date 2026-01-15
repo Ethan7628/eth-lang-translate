@@ -1,14 +1,12 @@
 import { Translation } from "@/types/translation";
 import { cacheTranslation, getCachedTranslation } from "./cacheService";
+import { supabase } from "@/integrations/supabase/client";
 
 // Rate limiting
 let lastRequestTime = 0;
 const MIN_REQUEST_INTERVAL = 300; // 300ms between requests
 
 const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-// DeepL API configuration
-const DEEPL_API_URL = "https://api-free.deepl.com/v2/translate";
 
 // Mock translation for demo/offline fallback
 const mockTranslate = async (text: string, targetLang: string): Promise<{ translatedText: string; detectedSourceLang?: string }> => {
@@ -74,73 +72,38 @@ export const translateText = async (
     return translation;
   }
 
-  // Get DeepL API key
-  const apiKey = import.meta.env.VITE_DEEPL_API_KEY;
-  
   let translatedText: string;
   let detectedSourceLang: string | undefined;
-  
-  if (apiKey) {
-    try {
-      // Build request body for DeepL
-      const requestBody: Record<string, string | string[]> = {
-        text: [text],
+
+  try {
+    // Call the backend edge function for translation
+    const { data, error } = await supabase.functions.invoke('translate', {
+      body: {
+        text,
+        source_lang: sourceLanguage,
         target_lang: targetLanguage,
-      };
-      
-      // Only add source_lang if it's not auto-detect
-      // DeepL auto-detects if source_lang is omitted
-      if (sourceLanguage && sourceLanguage !== "AUTO") {
-        // DeepL requires just the base language code for source (no regional variants)
-        requestBody.source_lang = sourceLanguage.split("-")[0];
-      }
+      },
+    });
 
-      const response = await fetch(DEEPL_API_URL, {
-        method: "POST",
-        headers: {
-          "Authorization": `DeepL-Auth-Key ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("DeepL API error:", response.status, errorText);
-        
-        if (response.status === 403) {
-          throw new Error("Invalid API key. Please check your DeepL API key.");
-        } else if (response.status === 456) {
-          throw new Error("DeepL quota exceeded. Please check your usage limits.");
-        } else if (response.status === 429) {
-          throw new Error("Too many requests. Please wait a moment and try again.");
-        } else {
-          // Fallback to mock for other errors
-          console.warn("DeepL API error, using mock translation");
-          const mockResult = await mockTranslate(text, targetLanguage);
-          translatedText = mockResult.translatedText;
-          detectedSourceLang = mockResult.detectedSourceLang;
-        }
-      } else {
-        const data = await response.json();
-        translatedText = data.translations[0].text;
-        detectedSourceLang = data.translations[0].detected_source_language;
-      }
-    } catch (error) {
-      if (error instanceof Error && 
-          (error.message.includes("Invalid API key") || 
-           error.message.includes("quota exceeded") ||
-           error.message.includes("Too many requests"))) {
-        throw error;
-      }
-      console.warn("API error, using mock translation:", error);
-      const mockResult = await mockTranslate(text, targetLanguage);
-      translatedText = mockResult.translatedText;
-      detectedSourceLang = mockResult.detectedSourceLang;
+    if (error) {
+      console.error("Edge function error:", error);
+      throw new Error(error.message || "Translation failed");
     }
-  } else {
-    // No API key - use mock translation for demo
-    console.warn("No DeepL API key configured, using mock translation");
+
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
+    translatedText = data.translated_text;
+    detectedSourceLang = data.detected_source_lang;
+  } catch (error) {
+    if (error instanceof Error && 
+        (error.message.includes("Invalid API key") || 
+         error.message.includes("quota exceeded") ||
+         error.message.includes("Too many requests"))) {
+      throw error;
+    }
+    console.warn("API error, using mock translation:", error);
     const mockResult = await mockTranslate(text, targetLanguage);
     translatedText = mockResult.translatedText;
     detectedSourceLang = mockResult.detectedSourceLang;
