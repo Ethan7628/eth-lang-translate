@@ -289,12 +289,12 @@ const TranslatorApp = () => {
             {isOnline ? (
               <span className="flex items-center justify-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-online" />
-                Connected • Powered by DeepL
+                Online Mode • Using live translations {new Date().toLocaleDateString()}
               </span>
             ) : (
               <span className="flex items-center justify-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-offline" />
-                Offline Mode • Using cached translations
+                Offline Mode • Using cached translations {new Date().toLocaleDateString()}
               </span>
             )}
           </p>
