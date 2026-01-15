@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRightLeft, History, Globe, Sparkles } from "lucide-react";
+import { ArrowRightLeft, History, Globe, Sparkles, Settings } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Language, Translation } from "@/types/translation";
 import { DEFAULT_SOURCE_LANGUAGE, DEFAULT_TARGET_LANGUAGE } from "@/data/languages";
 import { translateText } from "@/services/translateService";
@@ -115,13 +116,22 @@ const TranslatorApp = () => {
               </div>
             </div>
 
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className={`icon-button ${showHistory ? "bg-primary text-primary-foreground" : ""}`}
-              aria-label="Translation history"
-            >
-              <History className="h-5 w-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <Link
+                to="/settings"
+                className="icon-button"
+                aria-label="Settings"
+              >
+                <Settings className="h-5 w-5" />
+              </Link>
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className={`icon-button ${showHistory ? "bg-primary text-primary-foreground" : ""}`}
+                aria-label="Translation history"
+              >
+                <History className="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
