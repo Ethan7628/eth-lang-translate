@@ -100,7 +100,8 @@ export const translateText = async (
     if (error instanceof Error && 
         (error.message.includes("Invalid API key") || 
          error.message.includes("quota exceeded") ||
-         error.message.includes("Too many requests"))) {
+         error.message.includes("Too many requests") ||
+         error.message.includes("Translation failed"))) {
       throw error;
     }
     console.warn("API error, using mock translation:", error);
