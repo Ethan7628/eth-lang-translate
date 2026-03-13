@@ -5,11 +5,49 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// DeepL API configuration
-const DEEPL_API_URL = "https://api-free.deepl.com/v2/translate";
+// Langbly API configuration (Google Translate v2 compatible)
+const LANGBLY_API_URL = "https://api.langbly.com/language/translate/v2";
+
+// Map DeepL-style codes to ISO 639-1 codes for Langbly
+const mapToLangblyCode = (code: string): string => {
+  const mapping: Record<string, string> = {
+    "EN": "en",
+    "ES": "es",
+    "FR": "fr",
+    "DE": "de",
+    "IT": "it",
+    "PT-BR": "pt",
+    "PT-PT": "pt",
+    "RU": "ru",
+    "ZH-HANS": "zh",
+    "ZH-HANT": "zh-TW",
+    "JA": "ja",
+    "KO": "ko",
+    "AR": "ar",
+    "TR": "tr",
+    "NL": "nl",
+    "PL": "pl",
+    "SV": "sv",
+    "DA": "da",
+    "FI": "fi",
+    "NB": "no",
+    "EL": "el",
+    "ID": "id",
+    "CS": "cs",
+    "HU": "hu",
+    "RO": "ro",
+    "UK": "uk",
+    "SK": "sk",
+    "BG": "bg",
+    "LT": "lt",
+    "LV": "lv",
+    "ET": "et",
+    "SL": "sl",
+  };
+  return mapping[code] || code.toLowerCase().split("-")[0];
+};
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -24,33 +62,31 @@ serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get("DEEPL_API_KEY");
+    const apiKey = Deno.env.get("LANGBLY_API_KEY");
     if (!apiKey) {
-      console.error("DEEPL_API_KEY not configured");
+      console.error("LANGBLY_API_KEY not configured");
       return new Response(
         JSON.stringify({ error: "Translation service not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Build request body for DeepL
-    const requestBody: Record<string, string | string[]> = {
-      text: [text],
-      target_lang: target_lang,
+    const targetCode = mapToLangblyCode(target_lang);
+    const requestBody: Record<string, string> = {
+      q: text,
+      target: targetCode,
     };
 
-    // Only add source_lang if provided and not auto-detect
     if (source_lang && source_lang !== "AUTO") {
-      // DeepL requires just the base language code for source (no regional variants)
-      requestBody.source_lang = source_lang.split("-")[0];
+      requestBody.source = mapToLangblyCode(source_lang);
     }
 
-    console.log("Calling DeepL API with:", { target_lang, source_lang: requestBody.source_lang || "auto" });
+    console.log("Calling Langbly API with:", { target: targetCode, source: requestBody.source || "auto" });
 
-    const response = await fetch(DEEPL_API_URL, {
+    const response = await fetch(LANGBLY_API_URL, {
       method: "POST",
       headers: {
-        "Authorization": `DeepL-Auth-Key ${apiKey}`,
+        "X-API-Key": apiKey,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(requestBody),
@@ -58,17 +94,12 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("DeepL API error:", response.status, errorText);
+      console.error("Langbly API error:", response.status, errorText);
 
-      if (response.status === 403) {
+      if (response.status === 401 || response.status === 403) {
         return new Response(
-          JSON.stringify({ error: "Invalid API key. Please check your DeepL API key." }),
+          JSON.stringify({ error: "Invalid API key. Please check your Langbly API key." }),
           { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      } else if (response.status === 456) {
-        return new Response(
-          JSON.stringify({ error: "DeepL quota exceeded. Please check your usage limits." }),
-          { status: 456, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       } else if (response.status === 429) {
         return new Response(
@@ -84,15 +115,15 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    console.log("DeepL response:", data);
+    console.log("Langbly response:", data);
 
-    const translatedText = data.translations[0].text;
-    const detectedSourceLang = data.translations[0].detected_source_language;
+    const translatedText = data.data.translations[0].translatedText;
+    const detectedSourceLang = data.data.translations[0].detectedSourceLanguage;
 
     return new Response(
       JSON.stringify({
         translated_text: translatedText,
-        detected_source_lang: detectedSourceLang,
+        detected_source_lang: detectedSourceLang ? detectedSourceLang.toUpperCase() : undefined,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
